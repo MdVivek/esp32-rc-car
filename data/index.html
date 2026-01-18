@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #999;
+    }
+
+    .main-title {
+      text-align: center;
+      font-size: 2em;
+      font-weight: bold;
+      margin-top: 24px;
+      margin-bottom: 24px;
+      letter-spacing: 1px;
+    }
+
+    .panels-container {
+      display: flex;
+      flex-direction: row;
+      justify-content: space-evenly;
+      align-items: center;
+      width: 100%;
+      flex: 1;
+    }
+
+    @media screen and (orientation: portrait) {
+      body::before {
+        content: "Please rotate your device to landscape mode";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        color: #fff;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 1.5em;
+        z-index: 9999;
+        text-align: center;
+        padding: 20px;
+      }
+    }
+
+    .left-panel,
+    .right-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .draggable {
+      position: absolute;
+      cursor: grab;
+      z-index: 5;
+      transition: box-shadow 0.2s;
+    }
+
+    .draggable.editing {
+      box-shadow: 0 0 0 3px #007bff, 0 2px 12px #007bff44;
+      cursor: move;
+    }
+
+    /* Button and slider styling */
+    button,
+    #brake-btn {
+      border-radius: 24px;
+      border: none;
+      background: linear-gradient(135deg, #ff5e62 0%, #ff9966 100%);
+      color: #fff;
+      font-weight: bold;
+      font-size: 1.1em;
+      box-shadow: 0 2px 8px #0002;
+      transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+      outline: none;
+      padding: 12px 24px;
+    }
+
+    button:active,
+    #brake-btn:active {
+      background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
+      box-shadow: 0 1px 4px #0004;
+      transform: scale(0.97);
+    }
+
+    #brake-btn {
+      background: linear-gradient(135deg, #36d1c4 0%, #1e90ff 100%);
+      color: #fff;
+      font-size: 1.1em;
+      border-radius: 24px;
+      min-width: 60px;
+    }
+
+    #brake-btn:active {
+      background: linear-gradient(135deg, #1e90ff 0%, #36d1c4 100%);
+    }
+
+    /* Slider styling */
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 180px;
+      height: 8px;
+      background: #eee;
+      border-radius: 8px;
+      outline: none;
+      box-shadow: 0 1px 4px #0002;
+      margin: 8px 0;
+      transition: box-shadow 0.2s;
+    }
+
+    input[type=range]:focus {
+      box-shadow: 0 0 0 2px #007bff44;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
+      box-shadow: 0 2px 8px #0003;
+      cursor: pointer;
+      border: 2px solid #fff;
+      transition: background 0.2s;
+    }
+
+    input[type=range]:active::-webkit-slider-thumb {
+      background: linear-gradient(135deg, #ff5e62 0%, #ff9966 100%);
+    }
+
+    input[type=range]::-moz-range-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
+      box-shadow: 0 2px 8px #0003;
+      cursor: pointer;
+      border: 2px solid #fff;
+      transition: background 0.2s;
+    }
+
+    input[type=range]:active::-moz-range-thumb {
+      background: linear-gradient(135deg, #ff5e62 0%, #ff9966 100%);
+    }
+
+    input[type=range]::-ms-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
+      box-shadow: 0 2px 8px #0003;
+      cursor: pointer;
+      border: 2px solid #fff;
+      transition: background 0.2s;
+    }
+
+    /* Vertical slider */
+    #speed-slider {
+      writing-mode: bt-lr;
+      -webkit-appearance: slider-vertical;
+      width: 40px;
+      height: 140px;
+      margin: 0 8px;
+    }
+    }
+
+    .right-panel {
+      margin-left: 80px;
+      position: relative;
+      width: 260px;
+      min-height: 260px;
+    }
+
+    .movable-buttons {
+      position: absolute;
+      left: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: left 0.1s, top 0.1s;
+      z-index: 2;
+    }
+
+
+
+    .label {
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+
+
+
+
+    h2 {
+      text-align: center;
+      font-size: 1.2em;
+    }
+
+    /* status block */
+    #ws-status {
+      position: absolute;
+      top: 12px;
+      left: 24px;
+      z-index: 20;
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      font-weight: bold;
+      font-size: 0.9em;
+    }
+
+    /* top-right controls */
+    .top-controls {
+      position: absolute;
+      top: 12px;
+      right: 60px;
+      z-index: 10;
+      display: flex;
+      gap: 6px;
+    }
+
+    /* -------- Horizontal joystick -------- */
+    .joystick {
+      position: relative;
+      width: 200px;
+      height: 60px;
+      background: #eee;
+      border-radius: 30px;
+      box-shadow: inset 0 2px 6px #0003;
+      touch-action: none;
+    }
+
+    .joystick-handle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 3px 10px #0004;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="ws-status">WS: connecting…</div>
+
+  <div class="top-controls">
+    <button id="edit-controls-btn" style="padding: 2px 8px; font-size: 0.8em; min-width: 60px;">Edit</button>
+    <button id="save-controls-btn"
+      style="padding: 4px 12px; font-size: 0.9em; display:none; min-width: 60px;">Save</button>
+    <button id="reset-controls-btn" style="padding: 2px 8px; font-size: 0.8em; min-width: 60px;">Reset</button>
+  </div>
+
+  <div class="main-title">ESP32 RC Car Controller</div>
+
+
+  <div class="panels-container">
+    <div class="left-panel">
+      <div class="steering-container draggable" id="steering-draggable">
+        <div class="label">Steering</div>
+
+        <div class="joystick" id="steering-joystick">
+          <div class="joystick-handle" id="steering-handle"></div>
+        </div>
+
+        <div id="steering-value">0</div>
+      </div>
+
+    </div>
+    <div class="right-panel" style="flex-direction:row;align-items:center;">
+      <button id="brake-btn" class="draggable" style="height:140px;margin-right:18px;">Brake</button>
+      <div class="speed-container draggable" id="speed-draggable"
+        style="display:flex;flex-direction:column;align-items:center;">
+        <label for="speed-slider">Speed</label>
+        <input type="range" id="speed-slider" min="-10" max="10" value="0">
+        <div id="speed-value">0</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- WebSocket client ----------
+    let ws = null;
+    let reconnectTimeout = 1000;
+    const statusEl = document.getElementById('ws-status');
+
+    function setStatus(text, color) {
+      statusEl.textContent = 'WS: ' + text;
+      if (color) statusEl.style.backgroundColor = color;
+      else statusEl.style.backgroundColor = 'rgba(0,0,0,0.6)';
+    }
+
+    function buildWsUrl() {
+      // Use the same host/port the page is served from; path '/ws'
+      // location.host includes port if non-standard
+      return 'ws://' + location.host + '/ws';
+    }
+
+    function connectWs() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+      setStatus('connecting…', 'rgba(200,120,0,0.8)');
+
+      try {
+        ws = new WebSocket(buildWsUrl());
+      } catch (e) {
+        console.error('WS ctor error', e);
+        scheduleReconnect();
+        return;
+      }
+
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        setStatus('connected', 'rgba(0,140,0,0.8)');
+        reconnectTimeout = 1000; // reset backoff
+      };
+
+      ws.onmessage = (ev) => {
+        console.log('WS msg', ev.data);
+        // you can parse JSON responses here if needed
+      };
+
+      ws.onclose = (ev) => {
+        console.log('WebSocket closed', ev);
+        setStatus('disconnected', 'rgba(120,0,0,0.8)');
+        scheduleReconnect();
+      };
+
+      ws.onerror = (ev) => {
+        console.warn('WebSocket error', ev);
+        setStatus('error', 'rgba(120,0,0,0.8)');
+        // close to trigger onclose and reconnect logic
+        try { ws.close(); } catch (e) { }
+      };
+    }
+
+    function scheduleReconnect() {
+      // exponential backoff capped at 30s
+      reconnectTimeout = Math.min(reconnectTimeout * 2, 30000);
+      console.log('Reconnecting in', reconnectTimeout);
+      setTimeout(connectWs, reconnectTimeout);
+    }
+
+    function blockedInEditMode() {
+      if (editMode) {
+        console.warn("Edit Mode active → Commands blocked");
+        return true;
+      }
+      return false;
+    }
+
+    function sendJSON(obj) {
+
+      if (blockedInEditMode()) return;
+
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        console.warn('WS not open, cannot send', obj);
+        return;
+      }
+      try {
+        ws.send(JSON.stringify(obj));
+        console.log('Sent', obj);
+      } catch (e) {
+        console.error('WS send error', e);
+      }
+    }
+
+    // convenience API used by UI
+    function sendCmd(cmd) {
+
+      if (blockedInEditMode()) return;
+
+      // simple command map
+      if (cmd === 'stop' || cmd === 'brake') {
+        sendJSON({ cmd: 'move', dir: cmd });
+      } else {
+        sendJSON({ cmd: 'move', dir: cmd, speed: parseInt(document.getElementById('speed').value) });
+      }
+    }
+
+
+
+    // --- Edit mode logic for draggable controls ---
+    let editMode = false;
+    const editBtn = document.getElementById('edit-controls-btn');
+    const saveBtn = document.getElementById('save-controls-btn');
+    const resetBtn = document.getElementById('reset-controls-btn');
+    const steeringDraggable = document.getElementById('steering-draggable');
+    const speedDraggable = document.getElementById('speed-draggable');
+    const brakeBtn = document.getElementById('brake-btn');
+
+    // Utility to set/get positions
+    function setPosition(el, pos) {
+      el.style.left = pos.x + 'px';
+      el.style.top = pos.y + 'px';
+    }
+    function getPosition(el) {
+      return {
+        x: parseInt(el.style.left || 0, 10),
+        y: parseInt(el.style.top || 0, 10)
+      };
+    }
+    function savePositions() {
+      localStorage.setItem('steeringPos', JSON.stringify(getPosition(steeringDraggable)));
+      localStorage.setItem('speedPos', JSON.stringify(getPosition(speedDraggable)));
+      localStorage.setItem('brakePos', JSON.stringify(getPosition(brakeBtn)));
+    }
+    function loadPositions() {
+      const s = localStorage.getItem('steeringPos');
+      const sp = localStorage.getItem('speedPos');
+      const b = localStorage.getItem('brakePos');
+      if (s) setPosition(steeringDraggable, JSON.parse(s));
+      if (sp) setPosition(speedDraggable, JSON.parse(sp));
+      if (b) setPosition(brakeBtn, JSON.parse(b));
+    }
+    function resetPositions() {
+      setPosition(steeringDraggable, { x: 0, y: 0 });
+      setPosition(speedDraggable, { x: 0, y: 0 });
+      setPosition(brakeBtn, { x: 0, y: 0 });
+      savePositions();
+    }
+
+    // Drag logic
+    function makeDraggable(el) {
+      let offset = { x: 0, y: 0 };
+      let dragging = false;
+      el.addEventListener('mousedown', startDrag);
+      el.addEventListener('touchstart', startDrag);
+      function startDrag(e) {
+        if (!editMode) return;
+        dragging = true;
+        el.classList.add('editing');
+        let evt = e.touches ? e.touches[0] : e;
+        offset.x = evt.clientX - el.offsetLeft;
+        offset.y = evt.clientY - el.offsetTop;
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('touchmove', drag, { passive: false });
+        document.addEventListener('mouseup', stopDrag);
+        document.addEventListener('touchend', stopDrag);
+      }
+      function drag(e) {
+        if (!dragging) return;
+        let evt = e.touches ? e.touches[0] : e;
+        let x = evt.clientX - offset.x;
+        let y = evt.clientY - offset.y;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        e.preventDefault && e.preventDefault();
+      }
+      function stopDrag(e) {
+        dragging = false;
+        el.classList.remove('editing');
+        document.removeEventListener('mousemove', drag);
+        document.removeEventListener('touchmove', drag);
+        document.removeEventListener('mouseup', stopDrag);
+        document.removeEventListener('touchend', stopDrag);
+      }
+    }
+    makeDraggable(steeringDraggable);
+    makeDraggable(speedDraggable);
+    makeDraggable(brakeBtn);
+
+    editBtn.addEventListener('click', () => {
+      editMode = true;
+      editBtn.style.display = 'none';
+      saveBtn.style.display = '';
+      steeringDraggable.classList.add('editing');
+      speedDraggable.classList.add('editing');
+      brakeBtn.classList.add('editing');
+    });
+    saveBtn.addEventListener('click', () => {
+      editMode = false;
+      editBtn.style.display = '';
+      saveBtn.style.display = 'none';
+      steeringDraggable.classList.remove('editing');
+      speedDraggable.classList.remove('editing');
+      brakeBtn.classList.remove('editing');
+      savePositions();
+    });
+    resetBtn.addEventListener('click', () => {
+      resetPositions();
+    });
+    loadPositions();
+
+    // --- Steering joystick logic ---
+    const joystick = document.getElementById('steering-joystick');
+    const handle = document.getElementById('steering-handle');
+    const steeringValue = document.getElementById('steering-value');
+
+    let joystickActive = false;
+    let joystickCenter = 0;
+    let joystickMax = 0;
+
+    function updateSteering(clientX) {
+      const dx = clientX - joystickCenter;
+      const clamped = Math.max(-joystickMax, Math.min(joystickMax, dx));
+
+      // move handle
+      handle.style.left = `calc(50% + ${clamped}px)`;
+
+      // map to -10 .. 10
+      const value = Math.round((clamped / joystickMax) * 10);
+      steeringValue.textContent = value;
+
+      sendJSON({ cmd: 'steer', angle: value });
+    }
+
+    function resetJoystick() {
+      handle.style.left = '50%';
+      steeringValue.textContent = '0';
+      sendJSON({ cmd: 'steer', angle: 0 });
+    }
+
+    function startJoystick(e) {
+      if (editMode) return;
+
+      joystickActive = true;
+      const rect = joystick.getBoundingClientRect();
+      joystickCenter = rect.left + rect.width / 2;
+      joystickMax = (rect.width / 2) - 26; // handle radius
+
+      const evt = e.touches ? e.touches[0] : e;
+      updateSteering(evt.clientX);
+
+      document.addEventListener('mousemove', moveJoystick);
+      document.addEventListener('touchmove', moveJoystick, { passive: false });
+      document.addEventListener('mouseup', stopJoystick);
+      document.addEventListener('touchend', stopJoystick);
+    }
+
+    function moveJoystick(e) {
+      if (!joystickActive) return;
+      const evt = e.touches ? e.touches[0] : e;
+      updateSteering(evt.clientX);
+      e.preventDefault && e.preventDefault();
+    }
+
+    function stopJoystick() {
+      joystickActive = false;
+      resetJoystick();
+
+      document.removeEventListener('mousemove', moveJoystick);
+      document.removeEventListener('touchmove', moveJoystick);
+      document.removeEventListener('mouseup', stopJoystick);
+      document.removeEventListener('touchend', stopJoystick);
+    }
+
+    joystick.addEventListener('mousedown', startJoystick);
+    joystick.addEventListener('touchstart', startJoystick);
+
+
+    // --- Speed slider logic ---
+    const speedSlider = document.getElementById('speed-slider');
+    const speedValue = document.getElementById('speed-value');
+    let currentSpeed = 0;
+    speedSlider.addEventListener('input', function () {
+      speedValue.textContent = this.value;
+      currentSpeed = parseInt(this.value);
+      sendJSON({ cmd: 'set', param: 'speed_pct', value: currentSpeed });
+    });
+
+    // --- Brake button logic ---
+    let brakeInterval = null;
+    brakeBtn.addEventListener('mousedown', startBrake);
+    brakeBtn.addEventListener('touchstart', startBrake);
+    brakeBtn.addEventListener('mouseup', stopBrake);
+    brakeBtn.addEventListener('mouseleave', stopBrake);
+    brakeBtn.addEventListener('touchend', stopBrake);
+
+    function startBrake(e) {
+      if (editMode) return;
+      e.preventDefault && e.preventDefault();
+      if (brakeInterval) return;
+      brakeInterval = setInterval(() => {
+        if (currentSpeed > 0) currentSpeed--;
+        else if (currentSpeed < 0) currentSpeed++;
+        speedSlider.value = currentSpeed;
+        speedValue.textContent = currentSpeed;
+        sendJSON({ cmd: 'set', param: 'speed_pct', value: currentSpeed });
+        if (currentSpeed === 0) stopBrake();
+      }, 80);
+    }
+    function stopBrake(e) {
+      if (brakeInterval) {
+        clearInterval(brakeInterval);
+        brakeInterval = null;
+      }
+    }
+
+    // auto-connect on load
+    window.addEventListener('load', () => {
+      connectWs();
+    });
+
+  </script>
+</body>
+
+</html>
