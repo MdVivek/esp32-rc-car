@@ -4,7 +4,7 @@ Wi-Fi controlled RC car using ESP32 + TB6612 motor drivers.
 
 ## Features
 - WebSocket-based control
-- Mobile-friendly joystick UI (nippleJS)
+- Mobile-friendly joystick UI
 - Differential drive
 - ESP-IDF firmware
 
