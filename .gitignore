@@ -23,3 +23,4 @@ dist/
 .clangd
 .devcontainer/
 pt_read.bin
+copilot-instructions.md

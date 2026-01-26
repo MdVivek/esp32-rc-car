@@ -502,12 +502,12 @@
     });
     loadPositions();
 
-    // --- Steering joystick logic ---
+    // --- Steering joystick logic (Multi-touch support) ---
     const joystick = document.getElementById('steering-joystick');
     const handle = document.getElementById('steering-handle');
     const steeringValue = document.getElementById('steering-value');
 
-    let joystickActive = false;
+    let joystickTouchId = null; // Track which touch is controlling the joystick
     let joystickCenter = 0;
     let joystickMax = 0;
 
@@ -533,13 +533,18 @@
 
     function startJoystick(e) {
       if (editMode) return;
+      
+      // Only track if no touch is active, or this is a mouse event
+      if (joystickTouchId !== null && e.touches) return;
 
-      joystickActive = true;
+      // Use changedTouches to get the touch that started on this element
+      const evt = e.changedTouches ? e.changedTouches[0] : e;
+      if (e.changedTouches) joystickTouchId = e.changedTouches[0].identifier;
+
       const rect = joystick.getBoundingClientRect();
       joystickCenter = rect.left + rect.width / 2;
       joystickMax = (rect.width / 2) - 26; // handle radius
 
-      const evt = e.touches ? e.touches[0] : e;
       updateSteering(evt.clientX);
 
       document.addEventListener('mousemove', moveJoystick);
@@ -549,14 +554,30 @@
     }
 
     function moveJoystick(e) {
-      if (!joystickActive) return;
-      const evt = e.touches ? e.touches[0] : e;
+      if (joystickTouchId === null && !e.type.includes('mouse')) return;
+      
+      let evt;
+      if (e.touches) {
+        // Find the touch with matching ID
+        evt = Array.from(e.touches).find(t => t.identifier === joystickTouchId);
+        if (!evt) return;
+      } else {
+        evt = e;
+      }
+      
       updateSteering(evt.clientX);
       e.preventDefault && e.preventDefault();
+      e.stopPropagation && e.stopPropagation();
     }
 
-    function stopJoystick() {
-      joystickActive = false;
+    function stopJoystick(e) {
+      if (e.touches && joystickTouchId !== null) {
+        // Check if the touch we're tracking still exists
+        const touchExists = Array.from(e.touches).some(t => t.identifier === joystickTouchId);
+        if (touchExists) return;
+      }
+      
+      joystickTouchId = null;
       resetJoystick();
 
       document.removeEventListener('mousemove', moveJoystick);
@@ -569,27 +590,116 @@
     joystick.addEventListener('touchstart', startJoystick);
 
 
-    // --- Speed slider logic ---
+    // --- Speed slider logic (Multi-touch support) ---
     const speedSlider = document.getElementById('speed-slider');
     const speedValue = document.getElementById('speed-value');
     let currentSpeed = 0;
+    let speedSliderTouchId = null; // Track which touch is controlling the speed slider
+    
+    /**
+     * Handles speed slider input for both mouse and touch
+     * On touch devices, directly manipulates the slider value
+     */
     speedSlider.addEventListener('input', function () {
       speedValue.textContent = this.value;
       currentSpeed = parseInt(this.value);
       sendJSON({ cmd: 'set', param: 'speed_pct', value: currentSpeed });
     });
 
-    // --- Brake button logic ---
+    /**
+     * Start speed slider interaction via touch
+     * Allows simultaneous control with other inputs
+     */
+    speedSlider.addEventListener('touchstart', (e) => {
+      if (editMode || speedSliderTouchId !== null) return;
+      
+      // Use changedTouches to get the touch that started on this element
+      speedSliderTouchId = e.changedTouches[0].identifier;
+      handleSpeedSliderTouch(e);
+    });
+
+    /**
+     * Handle speed slider touch movement
+     */
+    speedSlider.addEventListener('touchmove', (e) => {
+      if (speedSliderTouchId === null) return;
+      
+      const touch = Array.from(e.touches).find(t => t.identifier === speedSliderTouchId);
+      if (!touch) return;
+      
+      handleSpeedSliderTouch(e);
+      e.preventDefault();
+      e.stopPropagation();
+    }, { passive: false });
+
+    /**
+     * End speed slider interaction via touch
+     */
+    document.addEventListener('touchend', (e) => {
+      if (speedSliderTouchId === null) return;
+      
+      const touchExists = Array.from(e.touches).some(t => t.identifier === speedSliderTouchId);
+      if (!touchExists) {
+        speedSliderTouchId = null;
+      }
+    });
+
+    /**
+     * Convert touch position to slider value for vertical slider
+     */
+    function handleSpeedSliderTouch(e) {
+      const rect = speedSlider.getBoundingClientRect();
+      const touch = Array.from(e.touches).find(t => t.identifier === speedSliderTouchId);
+      if (!touch) return;
+
+      // For vertical slider, calculate value based on Y position
+      // Top of slider = +10 (forward), Bottom = -10 (reverse)
+      const touchY = touch.clientY;
+      const sliderTop = rect.top;
+      const sliderHeight = rect.height;
+      
+      // Calculate percentage from TOP: (1 - distance from top) to invert the calculation
+      const percentFromTop = 1 - ((touchY - sliderTop) / sliderHeight);
+      const value = Math.round(percentFromTop * 20 - 10); // Map 1-0 to +10 to -10
+      const clamped = Math.max(-10, Math.min(10, value));
+      
+      speedSlider.value = clamped;
+      speedValue.textContent = clamped;
+      currentSpeed = clamped;
+      sendJSON({ cmd: 'set', param: 'speed_pct', value: clamped });
+    }
+
+    // --- Brake button logic (Multi-touch support) ---
     let brakeInterval = null;
+    let brakeTouchId = null; // Track which touch is controlling the brake
+
     brakeBtn.addEventListener('mousedown', startBrake);
-    brakeBtn.addEventListener('touchstart', startBrake);
+    brakeBtn.addEventListener('touchstart', (e) => {
+      if (editMode) return;
+      
+      // Allow multiple touches, just track them separately
+      if (brakeTouchId === null) {
+        brakeTouchId = e.touches[0].identifier;
+        startBrake();
+      }
+    });
+
     brakeBtn.addEventListener('mouseup', stopBrake);
     brakeBtn.addEventListener('mouseleave', stopBrake);
-    brakeBtn.addEventListener('touchend', stopBrake);
+    brakeBtn.addEventListener('touchend', (e) => {
+      if (brakeTouchId === null) return;
+      
+      const touchExists = Array.from(e.touches).some(t => t.identifier === brakeTouchId);
+      if (!touchExists) {
+        brakeTouchId = null;
+        stopBrake();
+      }
+    });
 
     function startBrake(e) {
       if (editMode) return;
-      e.preventDefault && e.preventDefault();
+      if (e && e.preventDefault) e.preventDefault();
+      
       if (brakeInterval) return;
       brakeInterval = setInterval(() => {
         if (currentSpeed > 0) currentSpeed--;
@@ -600,6 +710,7 @@
         if (currentSpeed === 0) stopBrake();
       }, 80);
     }
+
     function stopBrake(e) {
       if (brakeInterval) {
         clearInterval(brakeInterval);
