@@ -52,6 +52,13 @@ static esp_err_t ws_handler(httpd_req_t *req)
     if (httpd_ws_recv_frame(req, &frame, 0) != ESP_OK)
         return ESP_FAIL;
 
+    // Check for WebSocket close frame
+    if (frame.type == HTTPD_WS_TYPE_CLOSE) {
+        ESP_LOGW(TAG, "WS close frame received - stopping motors");
+        stop_motors();
+        return ESP_FAIL;
+    }
+
     uint8_t *buf = (uint8_t *)malloc(frame.len + 1);
     frame.payload = buf;
     httpd_ws_recv_frame(req, &frame, frame.len);
