@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "main.cpp"
+    SRCS "web_server.cpp" "wifi_config.cpp" "motor_control.cpp" "main.cpp"
     INCLUDE_DIRS "."
     REQUIRES
         esp_driver_gpio
